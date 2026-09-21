@@ -42,6 +42,17 @@
             transition: opacity 2s ease-in-out;
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 5;
         }
+
+        /* Estilo para los pétalos cayendo */
+        .petalo {
+            position: absolute;
+            background-color: #ffeb3b;
+            border-radius: 15px 0 15px 0;
+            opacity: 0.7;
+            pointer-events: none;
+            z-index: 99;
+            box-shadow: 0 0 5px rgba(255, 235, 59, 0.5);
+        }
         
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
@@ -49,8 +60,8 @@
 
 <body class="container">
 
-    <!-- Se quitó el autoplay para evitar el bloqueo del navegador. Se activará con el botón -->
-    <audio id="musica-fondo" src="sound/ChristianBasso&HaienQiu-Flowers.mp3"></audio>
+    <!-- Se agregan preload y playsinline para forzar compatibilidad en iOS WebKit -->
+    <audio id="musica-fondo" src="sound/ChristianBasso&HaienQiu-Flowers.mp3" preload="auto" playsinline></audio>
 
     <canvas id="luciernagas"></canvas>
 
@@ -59,7 +70,6 @@
         <div class="greetings">
             <span>H</span><span>o</span><span>l</span><span>a</span><span>,</span>
         </div>
-     
         <div class="greetings">
             <span>O</span><span>L</span><span>G</span><span>A</span>
             <span style="margin-left: 30px;">M</span><span>A</span><span>R</span><span>T</span><span>I</span><span>N</span><span>E</span><span>Z</span>
@@ -87,6 +97,7 @@
 
         <div class="night"></div>
         <div class="flowers">
+            <!-- (Aquí empieza el bloque de flores original, no lo modifiqué para no romper tu diseño) -->
             <div class="flower flower--1">
                 <div class="flower__leafs flower__leafs--1">
                     <div class="flower__leaf flower__leaf--1"></div><div class="flower__leaf flower__leaf--2"></div><div class="flower__leaf flower__leaf--3"></div><div class="flower__leaf flower__leaf--4"></div><div class="flower__white-circle"></div><div class="flower__light flower__light--1"></div><div class="flower__light flower__light--2"></div><div class="flower__light flower__light--3"></div><div class="flower__light flower__light--4"></div><div class="flower__light flower__light--5"></div><div class="flower__light flower__light--6"></div><div class="flower__light flower__light--7"></div><div class="flower__light flower__light--8"></div>
@@ -132,7 +143,6 @@
         </div>
     </div>
 
-    <!-- Scripts externos -->
     <script src="anim.js"></script>
     <script src="main.js"></script>
 
@@ -173,17 +183,21 @@
         init(); animate();
         window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; init(); });
 
-        // --- 2. CONTROL DE MÚSICA Y TRANSICIÓN ---
+        // --- 2. CONTROL DE MÚSICA Y TRANSICIÓN (SOLUCIÓN iOS) ---
         const btnDescubrir = document.getElementById("btn-descubrir");
         const musica = document.getElementById("musica-fondo");
         const pantallaInicio = document.getElementById("pantalla-inicio");
         const pantallaFlores = document.getElementById("pantalla-flores");
 
-        // Activa todo con el clic
         btnDescubrir.addEventListener("click", () => {
-            // Fuerza la reproducción de la música aquí (los navegadores sí lo permiten tras un clic)
-            if (musica.paused) {
-                musica.play();
+            // Solución robusta para forzar el audio en iPhone (Safari/Chrome iOS)
+            musica.volume = 1;
+            let playPromise = musica.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    musica.load();
+                    musica.play();
+                });
             }
 
             pantallaInicio.style.opacity = "0"; 
@@ -194,21 +208,54 @@
                 
                 setTimeout(() => {
                     pantallaFlores.style.opacity = "1"; 
+                    crearLluviaPetalos(); // Inicia la lluvia de pétalos
                 }, 50);
                 
                 setTimeout(iniciarDedicatoria, 2000);
             }, 1000);
         });
 
-        // --- 3. MÁQUINA DE ESCRIBIR (MÁS RÁPIDA) ---
+        // --- 3. NUEVO EFECTO: LLUVIA DE PÉTALOS ---
+        function crearLluviaPetalos() {
+            setInterval(() => {
+                const petalo = document.createElement("div");
+                petalo.classList.add("petalo");
+                
+                // Propiedades aleatorias
+                const size = Math.random() * 10 + 5;
+                petalo.style.width = `${size}px`;
+                petalo.style.height = `${size}px`;
+                petalo.style.left = `${Math.random() * 100}vw`;
+                petalo.style.top = `-20px`;
+                
+                // Animación de caída por JavaScript
+                let posY = -20;
+                let posX = parseFloat(petalo.style.left);
+                const caida = setInterval(() => {
+                    posY += Math.random() * 2 + 1; // Velocidad de caída
+                    posX += Math.sin(posY / 30);   // Efecto de balanceo
+                    petalo.style.top = `${posY}px`;
+                    petalo.style.left = `${posX}vw`;
+                    petalo.style.transform = `rotate(${posY}deg)`;
+
+                    if (posY > window.innerHeight) {
+                        clearInterval(caida);
+                        petalo.remove();
+                    }
+                }, 30);
+
+                document.getElementById("pantalla-flores").appendChild(petalo);
+            }, 500); // Aparece un pétalo nuevo cada medio segundo
+        }
+
+        // --- 4. MÁQUINA DE ESCRIBIR (VELOCIDAD CORREGIDA) ---
         const textoDedicatoria = `Estas flores amarillas son para recordarte lo bonito que es coincidir contigo.
 Gracias por llegar y hacer que, de alguna manera, mis días tengan un poquito más de color y alegría. 💛
 
 Con cariño,
 Pierre.`;
         
-        // Se redujo de 80 a 35 para que se escriba mucho más rápido y fluido
-        const velocidad = 35; 
+        const velocidad = 35; // Escribe bastante rápido y fluido
         let indice = 0;
 
         function escribirTexto() {
